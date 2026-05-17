@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 
 // ── WEBHOOKS N8N (ponte para Airtable) ────────────────────────────────────────
-const N8N_BASE = "https://nsalettiadvocacia.app.n8n.cloud/webhook";
+const N8N_BASE = import.meta.env.DEV
+  ? "/n8n/webhook"
+  : "https://nsalettiadvocacia.app.n8n.cloud/webhook";
 const WH = {
   criar:      `${N8N_BASE}/contador-criar`,
   listar:     `${N8N_BASE}/contador-listar`,
