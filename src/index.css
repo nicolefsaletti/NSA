@@ -1,0 +1,33 @@
+/* ── Design tokens ── */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f7f8fa;
+  --color-background-tertiary: #eef0f3;
+  --color-text-primary: #1a1d23;
+  --color-text-secondary: #6b7280;
+  --color-border-tertiary: #e2e5ea;
+  --border-radius-lg: 14px;
+  --border-radius-md: 8px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: #f0f2f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+#root {
+  width: 100%;
+  max-width: 1000px;
+}
