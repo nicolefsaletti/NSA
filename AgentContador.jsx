@@ -166,7 +166,7 @@ export default function AgentContador(){
     content:"Olá! Agente Contador autônomo ✅\n\nConectado ao Airtable via **n8n** — sem token no browser, sem CORS, sem depender de nenhuma outra conversa.\n\n**Contabilidade NS Advocacia** pronta:\n- 📋 Lançamentos · 🧾 Impostos · 📄 Notas Fiscais\n\nPor onde quer começar?"}]);
   const [inp,   setInp]   = useState("");
   const [load,  setLoad]  = useState(false);
-  const [pdf,   setPdf]   = useState(null);
+  const [pdfs,  setPdfs]  = useState([]);
   const [pdfErr,setPdfErr]= useState("");
   const [notifs,setNotifs]= useState([]);
   const endRef  = useRef(null);
@@ -221,23 +221,25 @@ export default function AgentContador(){
 
   const send = async(text) => {
     if(text==="__PDF__"){ fileRef.current?.click(); return; }
-    if(!text.trim()&&!pdf) return;
+    if(!text.trim()&&pdfs.length===0) return;
     if(load) return;
 
-    const display = pdf?`${text||"Analisar documento"} 📎 ${pdf.name}`:text;
+    const pdfLabel = pdfs.length > 0 ? ` 📎 ${pdfs.map(p=>p.name).join(", ")}` : "";
+    const display = pdfs.length > 0 ? `${text||"Analisar documento"}${pdfLabel}` : text;
     const hist = [...msgs, {role:"user",content:`[${mod.toUpperCase()}] ${display}`}];
     setMsgs(hist); setInp(""); setLoad(true); setNotifs([]);
 
-    // Captura se há PDF neste envio antes de limpar o estado
-    const hasPdf = !!pdf;
+    // Captura se há PDFs neste envio antes de limpar o estado
+    const hasPdf = pdfs.length > 0;
+    const capturedPdfs = [...pdfs];
 
     let apiContent;
     if(hasPdf){
       apiContent=[
-        {type:"document",source:{type:"base64",media_type:"application/pdf",data:pdf.b64}},
-        {type:"text",text:`Módulo: ${mod.toUpperCase()}. Arquivo: "${pdf.name}". ${text||"Extraia todos os dados e prepare os registros para salvar."}`},
+        ...capturedPdfs.map(p=>({type:"document",source:{type:"base64",media_type:"application/pdf",data:p.b64}})),
+        {type:"text",text:`Módulo: ${mod.toUpperCase()}. Arquivo(s): ${capturedPdfs.map(p=>`"${p.name}"`).join(", ")}. ${text||"Extraia todos os dados e prepare os registros para salvar."}`},
       ];
-      setPdf(null);
+      setPdfs([]);
     } else {
       apiContent=`[${mod.toUpperCase()}] ${text}`;
     }
@@ -300,12 +302,17 @@ export default function AgentContador(){
   };
 
   const handleFile=async(e)=>{
-    const f=e.target.files?.[0]; if(!f) return;
-    if(f.type!=="application/pdf"){setPdfErr("Apenas PDFs aceitos.");return;}
-    if(f.size>4*1024*1024){setPdfErr("PDF muito grande (máx 4MB).");return;}
-    setPdfErr("");
-    try{setPdf({name:f.name,b64:await pdfB64(f)});}
-    catch{setPdfErr("Erro ao ler o arquivo.");}
+    const files=Array.from(e.target.files||[]); if(!files.length) return;
+    const erros=[];
+    const novos=[];
+    for(const f of files){
+      if(f.type!=="application/pdf"){erros.push(`${f.name}: apenas PDF`);continue;}
+      if(f.size>4*1024*1024){erros.push(`${f.name}: máx 4MB`);continue;}
+      try{novos.push({name:f.name,b64:await pdfB64(f)});}
+      catch{erros.push(`${f.name}: erro ao ler`);}
+    }
+    setPdfErr(erros.join(" · "));
+    if(novos.length>0) setPdfs(prev=>[...prev,...novos]);
     e.target.value="";
   };
 
@@ -452,18 +459,20 @@ export default function AgentContador(){
           <div ref={endRef}/>
         </div>
 
-        {pdf&&(
-          <div style={{padding:"6px 14px 0"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",
-              borderRadius:"8px",background:`${cor}15`,border:`1px solid ${cor}40`,fontSize:"12px"}}>
-              <i className="ti ti-file-type-pdf" style={{fontSize:"16px",color:cor}} aria-hidden="true"/>
-              <span style={{color:cor,fontWeight:500,flex:1,overflow:"hidden",
-                textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pdf.name}</span>
-              <button onClick={()=>setPdf(null)} style={{background:"none",border:"none",
-                color:"var(--color-text-secondary)",cursor:"pointer",padding:0}}>
-                <i className="ti ti-x" style={{fontSize:"14px"}} aria-hidden="true"/>
-              </button>
-            </div>
+        {pdfs.length>0&&(
+          <div style={{padding:"6px 14px 0",display:"flex",flexDirection:"column",gap:"3px"}}>
+            {pdfs.map((p,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:"8px",padding:"6px 10px",
+                borderRadius:"8px",background:`${cor}15`,border:`1px solid ${cor}40`,fontSize:"12px"}}>
+                <i className="ti ti-file-type-pdf" style={{fontSize:"15px",color:cor,flexShrink:0}} aria-hidden="true"/>
+                <span style={{color:cor,fontWeight:500,flex:1,overflow:"hidden",
+                  textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                <button onClick={()=>setPdfs(prev=>prev.filter((_,j)=>j!==i))}
+                  style={{background:"none",border:"none",color:"var(--color-text-secondary)",cursor:"pointer",padding:0}}>
+                  <i className="ti ti-x" style={{fontSize:"13px"}} aria-hidden="true"/>
+                </button>
+              </div>
+            ))}
           </div>
         )}
         {pdfErr&&<div style={{padding:"4px 14px 0",fontSize:"11px",color:"#e53e3e"}}>{pdfErr}</div>}
@@ -478,7 +487,7 @@ export default function AgentContador(){
             </button>
             <textarea value={inp} onChange={e=>setInp(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send(inp);}}}
-              placeholder={pdf?"Instrução para o documento (ou Enter para analisar)..."
+              placeholder={pdfs.length>0?"Instrução para os documentos (ou Enter para analisar)..."
                 :mod==="pj"?"Ex: Recebi R$ 8.000 de honorários da ABC em maio/2026..."
                 :"Ex: Paguei R$ 800 de plano de saúde em 10/04/2026..."}
               rows={2} style={{flex:1,padding:"9px 12px",
@@ -487,21 +496,21 @@ export default function AgentContador(){
                 fontFamily:"var(--font-sans)",color:"var(--color-text-primary)",
                 background:"var(--color-background-secondary)",outline:"none",lineHeight:"1.5"}}
             />
-            <button onClick={()=>send(inp)} disabled={load||(!inp.trim()&&!pdf)} style={{
+            <button onClick={()=>send(inp)} disabled={load||(!inp.trim()&&pdfs.length===0)} style={{
               padding:"9px 14px",border:"none",borderRadius:"var(--border-radius-md)",
               background:cor,color:"#fff",fontSize:"14px",flexShrink:0,transition:"opacity 0.15s",
-              cursor:load||(!inp.trim()&&!pdf)?"not-allowed":"pointer",
-              opacity:load||(!inp.trim()&&!pdf)?0.4:1}}>
+              cursor:load||(!inp.trim()&&pdfs.length===0)?"not-allowed":"pointer",
+              opacity:load||(!inp.trim()&&pdfs.length===0)?0.4:1}}>
               <i className="ti ti-send" aria-hidden="true"/>
             </button>
           </div>
           <div style={{fontSize:"11px",color:"var(--color-text-secondary)",marginTop:"5px"}}>
-            Enter para enviar · 📎 PDF aceito · Salva via n8n → Airtable automaticamente
+            Enter para enviar · 📎 Múltiplos PDFs aceitos · Salva via n8n → Airtable automaticamente
           </div>
         </div>
       </div>
 
-      <input ref={fileRef} type="file" accept=".pdf,application/pdf"
+      <input ref={fileRef} type="file" accept=".pdf,application/pdf" multiple
         onChange={handleFile} style={{display:"none"}}/>
       <style>{`@keyframes pulse{0%,100%{opacity:.2}50%{opacity:1}}textarea:focus{border-color:${cor}!important;box-shadow:0 0 0 2px ${cor}22}::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--color-border-tertiary);border-radius:2px}`}</style>
     </div>
