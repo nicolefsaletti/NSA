@@ -242,8 +242,21 @@ export default function AgentContador(){
       apiContent=`[${mod.toUpperCase()}] ${text}`;
     }
 
-    const apiMsgs=hist.slice(0,-1).map(m=>({role:m.role,content:m.content}));
-    apiMsgs.push({role:"user",content:apiContent});
+    const rawMsgs = hist.slice(0,-1)
+      .map(m => ({ role: m.role, content: m.content }))
+      .filter(m => {
+        const c = typeof m.content === "string" ? m.content.trim() : "";
+        return c !== "" && !c.startsWith("Erro:");
+      });
+    while (rawMsgs.length > 0 && rawMsgs[0].role !== "user") rawMsgs.shift();
+    const normalized = [];
+    for (const m of rawMsgs) {
+      if (normalized.length === 0 || normalized[normalized.length-1].role !== m.role) {
+        normalized.push(m);
+      }
+    }
+    normalized.push({ role: "user", content: apiContent });
+    const apiMsgs = normalized;
 
     try{
       // Chama o webhook n8n que faz o proxy seguro para a Anthropic.
@@ -254,7 +267,7 @@ export default function AgentContador(){
         body:JSON.stringify({
           system:   SYSTEM,
           messages: apiMsgs,
-          model:    "claude-sonnet-4-5",
+          model:    "claude-sonnet-4-6",
           max_tokens: 4096,
           hasPdf,   // n8n usa para adicionar o header anthropic-beta quando necessário
         }),
