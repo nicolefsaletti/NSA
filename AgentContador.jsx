@@ -6,6 +6,7 @@ const WH = {
   criar:      `${N8N_BASE}/contador-criar`,
   listar:     `${N8N_BASE}/contador-listar`,
   atualizar:  `${N8N_BASE}/contador-atualizar`,
+  claude:     `${N8N_BASE}/contador-claude`,  // proxy seguro → chave fica no n8n
 };
 
 // ── FUNÇÕES DE ACESSO AO AIRTABLE VIA N8N ────────────────────────────────────
@@ -244,33 +245,28 @@ export default function AgentContador(){
     const apiMsgs=hist.slice(0,-1).map(m=>({role:m.role,content:m.content}));
     apiMsgs.push({role:"user",content:apiContent});
 
-    // BUG CORRIGIDO #1: headers obrigatórios da API Anthropic adicionados
-    // BUG CORRIGIDO #2: header `anthropic-beta` adicionado condicionalmente para PDFs
-    const headers = {
-      "Content-Type": "application/json",
-      "x-api-key": import.meta.env.VITE_ANTHROPIC_KEY || "",
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    };
-    if(hasPdf) headers["anthropic-beta"] = "pdfs-2024-09-25";
-
     try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
+      // Chama o webhook n8n que faz o proxy seguro para a Anthropic.
+      // A chave da API fica guardada no n8n — nunca exposta no browser.
+      const res=await fetch(WH.claude,{
         method:"POST",
-        headers,
-        // BUG CORRIGIDO #4: max_tokens aumentado de 1000 para 4096
-        // 1000 tokens era insuficiente — respostas com blocos JSON eram cortadas
-        body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:4096,system:SYSTEM,messages:apiMsgs}),
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          system:   SYSTEM,
+          messages: apiMsgs,
+          model:    "claude-sonnet-4-5",
+          max_tokens: 4096,
+          hasPdf,   // n8n usa para adicionar o header anthropic-beta quando necessário
+        }),
       });
 
-      // BUG CORRIGIDO #5: verificação de erro na resposta da API
-      // Antes, erros (ex: 401 sem API key) retornavam "Processado." silenciosamente
       if(!res.ok){
         const err=await res.json().catch(()=>({}));
-        throw new Error(`API ${res.status}: ${err?.error?.message||res.statusText}`);
+        throw new Error(`Proxy n8n ${res.status}: ${err?.error?.message||res.statusText}`);
       }
 
       const resData=await res.json();
+      // n8n devolve a resposta da Anthropic diretamente — mesmo formato
       const resp=(resData.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").trim();
 
       const acoes=extrairAcoes(resp);
