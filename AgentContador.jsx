@@ -52,7 +52,7 @@ TABELAS (use a chave exata):
 - "notas"       → Notas Fiscais
 
 CAMPOS — LANÇAMENTOS:
-"Descrição" | "Data" (YYYY-MM-DD) | "Tipo" ("Receita"/"Despesa") | "Módulo" ("PJ"/"CPF")
+"Descrição" | "Data de Pagamento" (YYYY-MM-DD) | "Tipo" ("Receita"/"Despesa") | "Módulo" ("PJ"/"CPF")
 "Valor (R$)" (número) | "Categoria" (Honorários/Assinaturas/Softwares/Transporte/Combustível/Despesas Pessoais/Tarifas Bancárias/INSS/GPS/DAS Simples/Outros)
 "Competência" (YYYY-MM) | "Status" ("Confirmado"/"Pendente") | "Observação"
 
@@ -73,7 +73,7 @@ DATAS — CRÍTICO:
 COMO EMITIR AÇÕES — formato exato, blocos ANTES do texto:
 
 Criar:
-%%ACAO%%{"op":"criar","tabela":"lancamentos","campos":{"Descrição":"...","Data":"YYYY-MM-DD","Tipo":"Receita","Módulo":"PJ","Valor (R$)":0.00,"Categoria":"Honorários","Competência":"YYYY-MM","Status":"Confirmado"}}%%FIM%%
+%%ACAO%%{"op":"criar","tabela":"lancamentos","campos":{"Descrição":"...","Data de Pagamento":"YYYY-MM-DD","Tipo":"Receita","Módulo":"PJ","Valor (R$)":0.00,"Categoria":"Honorários","Competência":"YYYY-MM","Status":"Confirmado"}}%%FIM%%
 
 Listar:
 %%ACAO%%{"op":"listar","tabela":"lancamentos","filtro":""}%%FIM%%
@@ -209,7 +209,7 @@ export default function AgentContador(){
     return listas.map(l=>{
       const rows = l.records.map(r=>{
         const f = r.fields||r;
-        if(l.tabela==="lancamentos") return `| ${f["Descrição"]||"—"} | ${fmtData(f["Data"])} | ${f["Tipo"]||"—"} | ${f["Módulo"]||"—"} | ${moeda(f["Valor (R$)"])} | ${f["Status"]||"—"} |`;
+        if(l.tabela==="lancamentos") return `| ${f["Descrição"]||"—"} | ${fmtData(f["Data de Pagamento"])} | ${f["Tipo"]||"—"} | ${f["Módulo"]||"—"} | ${moeda(f["Valor (R$)"])} | ${f["Status"]||"—"} |`;
         if(l.tabela==="impostos")    return `| ${f["Descrição"]||"—"} | ${fmtData(f["Vencimento"])} | ${moeda(f["Valor Calculado (R$)"])} | ${f["Status"]||"—"} |`;
         if(l.tabela==="notas")       return `| ${f["Número/Ref"]||"—"} | ${f["Cliente"]||"—"} | ${fmtData(f["Data Emissão"])} | ${moeda(f["Valor (R$)"])} | ${f["Status"]||"—"} |`;
         return "";
