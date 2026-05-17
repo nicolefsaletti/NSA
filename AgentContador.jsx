@@ -162,10 +162,16 @@ const ACOES = {
 };
 
 // ── COMPONENTE ────────────────────────────────────────────────────────────────
+const STORAGE_KEY = "contador-pessoal-msgs";
+const MSG_INICIAL = {role:"assistant",
+  content:"Olá! Agente Contador autônomo ✅\n\nConectado ao Airtable via **n8n** — sem token no browser, sem CORS, sem depender de nenhuma outra conversa.\n\n**Contabilidade NS Advocacia** pronta:\n- 📋 Lançamentos · 🧾 Impostos · 📄 Notas Fiscais\n\nPor onde quer começar?"};
+
 export default function AgentContador(){
   const [mod,   setMod]   = useState("pj");
-  const [msgs,  setMsgs]  = useState([{role:"assistant",
-    content:"Olá! Agente Contador autônomo ✅\n\nConectado ao Airtable via **n8n** — sem token no browser, sem CORS, sem depender de nenhuma outra conversa.\n\n**Contabilidade NS Advocacia** pronta:\n- 📋 Lançamentos · 🧾 Impostos · 📄 Notas Fiscais\n\nPor onde quer começar?"}]);
+  const [msgs,  setMsgs]  = useState(()=>{
+    try{ const s=localStorage.getItem(STORAGE_KEY); if(s) return JSON.parse(s); }catch{}
+    return [MSG_INICIAL];
+  });
   const [inp,   setInp]   = useState("");
   const [load,  setLoad]  = useState(false);
   const [pdfs,  setPdfs]  = useState([]);
@@ -175,6 +181,7 @@ export default function AgentContador(){
   const fileRef = useRef(null);
 
   useEffect(()=>{ endRef.current?.scrollIntoView({behavior:"smooth"}); },[msgs,load,notifs]);
+  useEffect(()=>{ try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(msgs)); }catch{} },[msgs]);
 
   // Executa ações no Airtable via n8n
   const executar = async(acoes) => {
@@ -408,7 +415,7 @@ export default function AgentContador(){
               style={{fontSize:"11px",color:cor,textDecoration:"none",display:"flex",alignItems:"center",gap:"4px",fontWeight:500}}>
               <i className="ti ti-external-link" style={{fontSize:"12px"}} aria-hidden="true"/>Airtable
             </a>
-            <button onClick={()=>{setMsgs([msgs[0]]);setNotifs([]);}} style={{background:"none",border:"none",
+            <button onClick={()=>{setMsgs([MSG_INICIAL]);setNotifs([]);localStorage.removeItem(STORAGE_KEY);}} style={{background:"none",border:"none",
               color:"var(--color-text-secondary)",cursor:"pointer",fontSize:"12px",
               display:"flex",alignItems:"center",gap:"4px"}}>
               <i className="ti ti-refresh" style={{fontSize:"13px"}} aria-hidden="true"/>Limpar
